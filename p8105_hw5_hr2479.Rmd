@@ -1,0 +1,64 @@
+---
+title: "p8105_hw5_hr2479"
+author: "Harry Reyes"
+date: "11/16/2021"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse) 
+library(knitr)
+```
+
+## Problem 1
+The Washington Post has gathered data on homicides in 50 large U.S. cities and made the data available through a GitHub repository [here](https://github.com/washingtonpost/data-homicides). You can read their accompanying article [here](https://www.washingtonpost.com/graphics/2018/investigations/where-murders-go-unsolved/).
+
+Describe the raw data. Create a `city_state` variable (e.g. “Baltimore, MD”) and then summarize within cities to obtain the total number of homicides and the number of unsolved homicides (those for which the disposition is “Closed without arrest” or “Open/No arrest”).
+
+For the city of Baltimore, MD, use the `prop.test` function to estimate the proportion of homicides that are unsolved; save the output of `prop.test` as an R object, apply the `broom::tidy` to this object and pull the estimated proportion and confidence intervals from the resulting tidy dataframe.
+
+Now run `prop.test` for each of the cities in your dataset, and extract both the proportion of unsolved homicides and the confidence interval for each. Do this within a “tidy” pipeline, making use of `purrr::map`, `purrr::map2`, list columns and `unnest` as necessary to create a tidy dataframe with estimated proportions and CIs for each city.
+
+Create a plot that shows the estimates and CIs for each city – check out `geom_errorbar` for a way to add error bars based on the upper and lower limits. Organize cities according to the proportion of unsolved homicides.
+
+```{r, eval = FALSE}
+myfile <- "https://github.com/washingtonpost/data-homicides/raw/master/homicide-data.csv"
+homicide <- read_csv(myfile)
+kable(head(homicide))
+```
+
+## Problem 2
+
+This [zip file](https://www.p8105.com/data/hw5_data.zip) contains data from a longitudinal study that included a control arm and an experimental arm. Data for each participant is included in a separate file, and file names include the subject ID and arm.
+
+Create a tidy dataframe containing data from all participants, including the subject ID, arm, and observations over time:
+
+* Start with a dataframe containing all file names; the `list.files` function will help
+* Iterate over file names and read in data for each subject using `purrr::map` and saving the result as a new variable in the dataframe
+* Tidy the result; manipulate file names to include control arm and subject ID, make sure weekly observations are “tidy”, and do any other tidying that’s necessary
+* Make a spaghetti plot showing observations on each subject over time, and comment on differences between groups.
+
+## Problem 3
+
+The code chunk below loads the `iris` dataset from the `tidyverse` package and introduces some missing values in each column. The purpose of this problem is to fill in those missing values.
+
+```{r, eval = FALSE}
+library(tidyverse)
+
+set.seed(10)
+
+iris_with_missing = iris %>% 
+  map_df(~replace(.x, sample(1:150, 20), NA)) %>%
+  mutate(Species = as.character(Species))
+```
+
+There are two cases to address:
+
+* For numeric variables, you should fill in missing values with the mean of non-missing values
+* For character variables, you should fill in missing values with `"virginica"`
+
+Write a function that takes a vector as an argument; replaces missing values using the rules defined above; and returns the resulting vector. Apply this function to the columns of `iris_with_missing` using a `map` statement.
+
+
