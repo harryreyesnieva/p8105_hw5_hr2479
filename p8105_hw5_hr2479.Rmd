@@ -25,39 +25,50 @@ theme_set(theme_minimal() + theme(legend.position = "bottom"))
 ```
 
 ## Problem 1
-The Washington Post has gathered data on homicides in 50 large U.S. cities and made the data available through a GitHub repository [here](https://github.com/washingtonpost/data-homicides). You can read their accompanying article [here](https://www.washingtonpost.com/graphics/2018/investigations/where-murders-go-unsolved/).
 
-```{r}
-homicide = read_csv("data/homicide-data.csv")
-```
-
-Describe the raw data. 
-
-
-
-
-Create a `city_state` variable (e.g. “Baltimore, MD”) and then summarize within cities to obtain the total number of homicides and the number of unsolved homicides (those for which the disposition is “Closed without arrest” or “Open/No arrest”).
+The Washington Post made data on homicides in 50 U.S. cities publicly available via a [Github repository](https://github.com/washingtonpost/data-homicides). After downloading the data, here we import and review the dataset.
 
 ```{r}
 homicide_df = 
-  read_csv("./data/homicide-data.csv", na = c("", "Unknown")) %>%
+  read_csv("./data/homicide-data.csv", na = c("", "Unknown"), show_col_types = FALSE) %>%
   mutate(
-    city_state = str_c(city,state),
+    city_state = str_c(city, state, sep = ", "),
+    victim_age = as.numeric(victim_age),
     resolution = case_when(
       disposition == "Closed without arrest" ~ "unsolved",
       disposition == "Open/No arrest" ~ "unsolved",
       disposition == "Closed by arrest" ~ "solved"
     )) %>%
   relocate(city_state) %>%
-  filter(city_state != "TulsaAL")
+  filter(city_state != "Tulsa, AL") 
+
+head(homicide_df)%>%
+  knitr::kable()
+
 ```
 
-For the city of Baltimore, MD, use the `prop.test` function to estimate the proportion of homicides that are unsolved; save the output of `prop.test` as an R object, apply the `broom::tidy` to this object and pull the estimated proportion and confidence intervals from the resulting tidy dataframe.
+The homicide dataset contains `r nrow(homicide_df)` observations and `r ncol(homicide_df)` variables, including the victim's name, age, race (i.e., `r levels(factor(pull(homicide_df, victim_race)))`), and sex (i.e., `r levels(factor(pull(homicide_df, victim_sex)))`). There is also information on the date the homicide was reported, its disposition (i.e., `r levels(factor(pull(homicide_df, disposition)))`), the city and state of the homicide, and its latitude and longitude. Homicide victims in this dataset had a mean age of `r round(mean(pull(homicide_df, victim_age), na.rm = TRUE))` years. As part of tidying this dataset, I created a city_state variable that combines city and state, and a resolution variable based on the disposition of the case. I also dropped an observation attributed to Tulsa, AL that appears to be an error.
+
+Here I computed the total number of homicides and the number of unsolved homicides (those for which the disposition is “Closed without arrest” or “Open/No arrest”) at the city level.
+
+```{r}
+citystate_homicide_df = 
+  homicide_df %>% 
+  select(city_state, disposition, resolution) %>% 
+  group_by(city_state) %>% 
+  summarize(homicides_total = n(),
+            homicides_unsolved = sum(resolution == "unsolved"))
+
+citystate_homicide_df%>%
+  knitr::kable()
+```
+
+Here, for the city of Baltimore, MD, I estimated the proportion (and confidence intervals) of homicides that are unsolved. It appears to be approximately 65% (95% CI: 63%-66%).
 
 ```{r}
 baltimore_df = 
   homicide_df %>% 
-  filter(city_state == "BaltimoreMD") 
+  filter(city_state == "Baltimore, MD") 
 
 baltimore_summary =
   baltimore_df %>%
@@ -73,10 +84,11 @@ baltimore_test =
 
 baltimore_test %>% 
   broom::tidy()%>%
-  select(estimate, starts_with("conf"))
+  select(estimate, starts_with("conf"))%>%
+  knitr::kable()
 ```
 
-Now run `prop.test` for each of the cities in your dataset, and extract both the proportion of unsolved homicides and the confidence interval for each. Do this within a “tidy” pipeline, making use of `purrr::map`, `purrr::map2`, list columns and `unnest` as necessary to create a tidy dataframe with estimated proportions and CIs for each city.
+After developing my approach for a single city, I then created a function that would similarly estimate the proportion (and confidence intervals) of homicides that are unsolved for each city in the dataset.
 
 ```{r}
 prop_test_function = function(city_df){
@@ -106,9 +118,12 @@ result_df =
   select(city_state, tidy_results) %>%
   unnest(tidy_results) %>%
   select(city_state, estimate, starts_with("conf"))
+
+result_df%>%
+  knitr::kable()
 ```
 
-Create a plot that shows the estimates and CIs for each city – check out `geom_errorbar` for a way to add error bars based on the upper and lower limits. Organize cities according to the proportion of unsolved homicides.
+I also created a plot that shows the estimates and CIs for each city, organizing cities according to the proportion of unsolved homicides.
 
 ```{r}
 result_df %>%
@@ -124,13 +139,7 @@ result_df %>%
 
 ## Problem 2
 
-This [zip file](https://www.p8105.com/data/hw5_data.zip) contains data from a longitudinal study that included a control arm and an experimental arm. Data for each participant is included in a separate file, and file names include the subject ID and arm.
-
-Create a tidy dataframe containing data from all participants, including the subject ID, arm, and observations over time:
-
-* Start with a dataframe containing all file names; the `list.files` function will help
-* Iterate over file names and read in data for each subject using `purrr::map` and saving the result as a new variable in the dataframe
-* Tidy the result; manipulate file names to include control arm and subject ID, make sure weekly observations are “tidy”, and do any other tidying that’s necessary.
+Based on a [zip file](https://www.p8105.com/data/hw5_data.zip) for a longitudinal study, I created a tidy dataframe containing data from all participants, including the subject ID, arm, and observations over time. I started with a dataframe containing all file names, then iterated over file names and read in data for each subject, saving the result as a new variable in the dataframe. I then tidied the result by pivoting to a longer format.
 
 ```{r}
 longitudinal_df =
@@ -154,7 +163,8 @@ longitudinal_df =
   select(arm, subject_id, week, observation)
 ```
 
-* Make a spaghetti plot showing observations on each subject over time, and comment on differences between groups
+I also made a spaghetti plot showing observations on each subject over time. Data in the control arm appears relatively stable over time while observations in the experimental appear to increase over time linearly.
+
 ```{r}
 arm.labs <- c("Control Arm", "Experimental Arm")
 names(arm.labs) <- c("con", "exp")
